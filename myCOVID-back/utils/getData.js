@@ -1,7 +1,5 @@
 let axios = require('axios');
 
-
-
 async function getData(url) {
     let data = await axios.request(url)
         .then(res => res.data.replaceAll('\n',''));

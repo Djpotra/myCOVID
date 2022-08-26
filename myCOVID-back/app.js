@@ -3,9 +3,11 @@ var express = require('express');
 var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
+var fs = require('fs')
 
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
+var dataRouter = require('./routes/data');
 
 let getData = require('./utils/getData');
 const targetUrl = "https://ncov.dxy.cn/ncovh5/view/pneumonia";
@@ -24,14 +26,15 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
+app.use('/data', dataRouter);
 
 // catch 404 and forward to error handler
-app.use(function(req, res, next) {
+app.use(function (req, res, next) {
   next(createError(404));
 });
 
 // error handler
-app.use(function(err, req, res, next) {
+app.use(function (err, req, res, next) {
   // set locals, only providing error in development
   res.locals.message = err.message;
   res.locals.error = req.app.get('env') === 'development' ? err : {};
@@ -41,10 +44,17 @@ app.use(function(err, req, res, next) {
   res.render('error');
 });
 
-let data;
-getData(targetUrl).then(res=>{
-  data = res;
-  console.log(data);
+// setInterval(()=>{
+getData(targetUrl).then(res => {
+  console.log('data refreshed!');
+  for (let key in res) {
+    fs.writeFile(`data/${key}.json`, JSON.stringify(res[key]), (err) => { if (err) console.log(err) });
+  }
+  fs.writeFile(`data/data.json`, JSON.stringify(res), (err) => { if (err) console.log(err) });
+
 });
+// },500);
+
+
 
 module.exports = app;
