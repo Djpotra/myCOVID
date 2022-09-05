@@ -8,6 +8,7 @@ var fs = require('fs')
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
 var dataRouter = require('./routes/data');
+let geoRouter = require('./routes/geo');
 
 let getData = require('./utils/getData');
 const targetUrl = "https://ncov.dxy.cn/ncovh5/view/pneumonia";
@@ -27,6 +28,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
 app.use('/data', dataRouter);
+app.use('/geo',geoRouter);
 
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
