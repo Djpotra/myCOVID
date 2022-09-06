@@ -9,8 +9,10 @@ var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
 var dataRouter = require('./routes/data');
 let geoRouter = require('./routes/geo');
+let ncovRouter = require('./routes/ncov');
 
 let getData = require('./utils/getData');
+let getNcovJson = require('./utils/getNcovJson');
 const targetUrl = "https://ncov.dxy.cn/ncovh5/view/pneumonia";
 
 var app = express();
@@ -28,7 +30,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/', indexRouter);
 app.use('/users', usersRouter);
 app.use('/data', dataRouter);
-app.use('/geo',geoRouter);
+app.use('/geo', geoRouter);
+app.use('/ncov', ncovRouter);
 
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
@@ -47,14 +50,24 @@ app.use(function (err, req, res, next) {
 });
 
 // setInterval(()=>{
-getData(targetUrl).then(res => {
-  console.log('data refreshed!');
-  for (let key in res) {
-    fs.writeFile(`data/${key}.json`, JSON.stringify(res[key]), (err) => { if (err) console.log(err) });
-  }
-  fs.writeFile(`data/data.json`, JSON.stringify(res), (err) => { if (err) console.log(err) });
+getData(targetUrl)
+  .then(res => {
+    for (let key in res) {
+      fs.writeFile(`data/${key}.json`, JSON.stringify(res[key]), (err) => { if (err) console.log(err) });
+    }
+    fs.writeFile(`data/data.json`, JSON.stringify(res), (err) => {
+      console.log('data refreshed!');
+      if (err) {
+        console.log(err);
+      } else {
+        getNcovJson()
+        .then(()=>{
+          console.log('ncov refreshed!');
+        });
+      }
+    });
 
-});
+  });
 // },500);
 
 

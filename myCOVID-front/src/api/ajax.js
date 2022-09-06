@@ -10,9 +10,16 @@ let dataRequests = axios.create({
     timeout:0,
 });
 
+let ncovRequests = axios.create({
+    baseURL:'/api/ncov',
+    timeout:0,
+})
+
 geoRequests.interceptors.response.use(res=>res.data);
+ncovRequests.interceptors.response.use(res=>res.data);
 
 export {
     geoRequests,
-    dataRequests
+    dataRequests,
+    ncovRequests
 } 

@@ -1,6 +1,5 @@
 let express = require('express');
 let router = express.Router();
-let data = require('../data/data.json');
 
 
 router.get('/:key', (req, res, next) => {
@@ -10,6 +9,7 @@ router.get('/:key', (req, res, next) => {
 
 
 router.get('/', (req, res, next) => {
+    let data = require('../data/data.json');
     res.send(data);
 })
 
