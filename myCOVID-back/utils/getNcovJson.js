@@ -27,7 +27,7 @@ function sleep(time) {
 
 async function saveAreaStat(areaStat) {
     let name = areaStat['cityName'] || areaStat['provinceShortName'];
-    if (areaStat.hasOwnProperty('locationId')) {
+    if (areaStat.hasOwnProperty('locationId') && !cityNameAdcodeMap.has(name)) {
         cityNameAdcodeMap.set(name, areaStat['locationId'].toString());
     }
     let temp = {};
@@ -63,9 +63,10 @@ async function saveAreaStat(areaStat) {
                 .catch(err=>{console.log(err)});
             await sleep(3000);
         } else {
-            temp[key] = areaStat[key];
+            if(!temp.hasOwnProperty(key))temp[key] = areaStat[key];
         }
     }
+    
     fs.writeFile(target, JSON.stringify(temp), err => { });
 }
 
@@ -73,7 +74,6 @@ async function getNcovJson() {
     for (let areaStat of getAreaStat) {
         await saveAreaStat(areaStat);
     }
-
     for (let recentStat of fetchRecentStat) {
         await saveAreaStat(recentStat);
     }
@@ -95,5 +95,7 @@ async function getNcovJson() {
         }
     }
 }
+
+getNcovJson();
 
 module.exports = getNcovJson;

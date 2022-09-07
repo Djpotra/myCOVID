@@ -1,5 +1,5 @@
 <script setup>
-import { getGeoJson, getNcovJson } from '@/api'
+import { getGeoJson, getNcovJson, getChildNcovJson } from '@/api'
 import { ref, onMounted, watch, computed, nextTick, reactive } from 'vue';
 
 import * as echarts from 'echarts/core'
@@ -64,7 +64,7 @@ let NumberCnts = reactive({
     highDangerCount: [],
     midDangerCount: [],
 });
-let childs = [];
+let adcodeMap2Name = new Map();
 let option = {
     title: {
 
@@ -98,20 +98,18 @@ let setDomSize = (node) => {
 }
 
 let setNumberCnts = async () => {
-
-    for (let key in NumberCnts) {
-        NumberCnts[key] = [];
-    }
-
-    for (let child of childs) {
-        let temp = await getNcovJson(child.adcode);
-        if (temp) {
-            for (let key in NumberCnts) {
-                NumberCnts[key].push({
-                    name: child.name,
-                    value: temp[key]
-                })
-            }
+    let exclude = new Set([710000,810000,820000]);
+    let temp = await getChildNcovJson(props.adcode);
+    if (temp) {
+        for (let key in NumberCnts) {
+            NumberCnts[key] = temp[key]
+                .filter(item=>!exclude.has(item.name))
+                .map(item => {
+                    return {
+                        name: adcodeMap2Name.get(item.name),
+                        value: item.value
+                    }
+                });
         }
     }
 }
@@ -127,10 +125,7 @@ let printMyEchart = async () => {
     echarts.registerMap(props.mapName, geoJson);
 
     for (let feature of geoJson.features) {
-        childs.push({
-            adcode: feature.properties.adcode,
-            name: feature.properties.name
-        });
+        adcodeMap2Name.set(feature.properties.adcode, feature.properties.name);
     }
 
     await setNumberCnts();
