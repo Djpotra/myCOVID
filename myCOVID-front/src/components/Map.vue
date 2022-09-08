@@ -11,7 +11,7 @@ import {
     DatasetComponent,
     TransformComponent,
     ToolboxComponent,
-    VisualMapComponent
+    VisualMapComponent,
 } from 'echarts/components'
 import {
     LabelLayout,
@@ -40,10 +40,6 @@ const props = defineProps({
         type: Number,
         default: 100000
     },
-    mapName: {
-        type: String,
-        default: '100000'
-    },
     staticsType: {
         type: String,
         default: 'currentConfirmedCount'
@@ -52,6 +48,7 @@ const props = defineProps({
 
 let echarts_dom = ref(null);
 let NumberCnts = reactive({
+    adcode: null,
     yesterdayLocalConfirmedCount: [],
     yesterdayAsymptomaticCount: [],
     currentConfirmedCount: [],
@@ -94,42 +91,64 @@ let option = {
 let myChart;
 
 let setDomSize = (node) => {
-    node.style.height = `${node.clientWidth * 0.7}px`;
+    let parentNode = node.parentNode;
+    node.style.width = `${parentNode.clientWidth * 0.9}px`;
+    node.style.height = `${parentNode.clientWidth * 0.7}px`;
 }
 
-let setNumberCnts = async () => {
-    let exclude = new Set([710000,810000,820000]);
-    let temp = await getChildNcovJson(props.adcode);
+let setNumberCnts = async (adcode, ifExclude) => {
+    let exclude = ifExclude ? new Set([710000, 810000, 820000]) : new Set();
+    let temp = await getChildNcovJson(adcode);
     if (temp) {
         for (let key in NumberCnts) {
+            if (!Array.isArray(temp[key])) {
+                NumberCnts[key] = temp[key];
+                continue;
+            }
             NumberCnts[key] = temp[key]
-                .filter(item=>!exclude.has(item.name))
+                .filter(item => !exclude.has(item.name))
                 .map(item => {
                     return {
+                        adcode: item.name,
                         name: adcodeMap2Name.get(item.name),
                         value: item.value
                     }
                 });
         }
+        return true;
     }
+    return false;
 }
 
-let printMyEchart = async () => {
-    setDomSize(echarts_dom.value);
-    myChart = echarts.init(echarts_dom.value);
+let printMyEchartByAdCode = async (adcode) => {
     myChart.showLoading();
-
-    let geoJson = await getGeoJson(props.adcode);
-    // console.log(geoJson);
+    let geoJson = await getGeoJson(adcode);
     myChart.hideLoading();
-    echarts.registerMap(props.mapName, geoJson);
 
     for (let feature of geoJson.features) {
         adcodeMap2Name.set(feature.properties.adcode, feature.properties.name);
     }
 
-    await setNumberCnts();
-    myChart.setOption(option);
+    let flag = await setNumberCnts(adcode, true);
+    if (flag) {
+        echarts.registerMap(`${adcode}`, geoJson);
+        myChart.setOption(option);
+    }
+
+}
+
+let printMyEchart = () => {
+    setDomSize(echarts_dom.value);
+    myChart = echarts.init(echarts_dom.value);
+
+    printMyEchartByAdCode(props.adcode);
+
+    nextTick(() => {
+        myChart.on('click', params => {
+            let newAdCode = params.data.adcode;
+            nextTick(() => printMyEchartByAdCode(newAdCode));
+        })
+    })
 }
 
 onMounted(() => {
@@ -163,8 +182,9 @@ watch(NumberCnts, () => {
     option.series = [{
         name: '',
         type: 'map',
-        map: props.mapName,
-        zoom: 1,
+        map: `${NumberCnts.adcode}`,
+        zoom: 1.2,
+        roam: true,
         label: {
             show: true
         },
@@ -189,5 +209,8 @@ export default {
 <style lang="less" scoped>
 div {
     width: 100%;
+    border: 1px solid black;
+    margin: auto;
+    margin-top: 5px;
 }
 </style>

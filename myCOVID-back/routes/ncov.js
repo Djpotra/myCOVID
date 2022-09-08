@@ -29,8 +29,12 @@ router.get('/child/:adcode', (req, res, next) => {
     };
     let targetPath = `data/ncovs${getPath(adcode)}`;
     fs.readdir(targetPath, (err, files) => {
+        if (err) {
+            res.send(null);
+            return;
+        }
         files = files.filter(file => /[0-9]+[.json]/.test(file));
-        console.log(files);
+        // console.log(files);
         for (let file of files) {
             let temp = require(`../${targetPath}/${file}`);
             for (let key in NumberCnts) {
@@ -42,7 +46,7 @@ router.get('/child/:adcode', (req, res, next) => {
 
         }
 
-        res.send(NumberCnts);
+        res.send({ ...NumberCnts, adcode});
     })
 })
 
