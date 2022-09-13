@@ -46,7 +46,7 @@ router.get('/child/:adcode', (req, res, next) => {
 
         }
 
-        res.send({ ...NumberCnts, adcode});
+        res.send(NumberCnts);
     })
 })
 

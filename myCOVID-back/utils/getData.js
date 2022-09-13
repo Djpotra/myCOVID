@@ -3,21 +3,16 @@ let axios = require('axios');
 async function getData(url) {
     let data = await axios.request(url)
         .then(res => res.data.replaceAll('\n',''));
-    let scripts = await data.match(/<body>.*<\/body>/)
+    let scripts = data.match(/<body>(.*)<\/body>/)[1]
+    .replace(/<noscript>(.*?)<\/noscript>/g,'')
+    .match(/<script.*?>.+?<\/script>/g)
     .reduce((cur,next)=>{
-        return [...cur,...next.split(/<noscript.*>.*<\/noscript>/g)];
+        return [...cur,next.replace(/<script.*?>/g,'').replace(/<\/script>/g,'')];
     },[])
-    .reduce((cur,next)=>{
-        return [...cur,...next.match(/<script.*>.*?<\/script>/)];
-    },[])
-    .reduce((cur,next)=>{
-        return [...cur,...next.split(/<\/script>/g)];
-    },[]);
-
-    scripts = scripts.map(s=>s.replace(/<script.*>/g,'')).filter(s=>s.length>0);
-
+    
     let window = {};
     scripts.forEach(s=>eval(s));
+    // console.log(scripts);
     
     return window;
 }

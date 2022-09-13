@@ -4,7 +4,7 @@ import { RouterLink, RouterView } from 'vue-router'
 
 
 <template>
-    <Map :adcode="100000" :statics-type="'confirmedCount'"/>
+    <Map :init-adcode="100000" :init-statics-type="'confirmedCount'"/>
   <!-- <RouterView /> -->
 </template>
 

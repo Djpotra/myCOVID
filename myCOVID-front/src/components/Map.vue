@@ -1,5 +1,5 @@
 <script setup>
-import { getGeoJson, getNcovJson, getChildNcovJson } from '@/api'
+import { getGeoJson, getParentAdCode, getNcovJson, getChildNcovJson } from '@/api'
 import { ref, onMounted, watch, computed, nextTick, reactive } from 'vue';
 
 import * as echarts from 'echarts/core'
@@ -36,19 +36,21 @@ echarts.use([
 ]);
 
 const props = defineProps({
-    adcode: {
+    initAdcode: {
         type: Number,
         default: 100000
     },
-    staticsType: {
+    intiStaticsType: {
         type: String,
         default: 'currentConfirmedCount'
     }
 })
 
+let adcode = ref(props.initAdcode);
+let staticsType = ref(props.intiStaticsType);
+
 let echarts_dom = ref(null);
 let NumberCnts = reactive({
-    adcode: null,
     yesterdayLocalConfirmedCount: [],
     yesterdayAsymptomaticCount: [],
     currentConfirmedCount: [],
@@ -70,7 +72,19 @@ let option = {
 
     },
     toolbox: {
-
+        feature: {
+            myButton_back: {
+                show: true,
+                title: 'back',
+                icon: 'path://M960 583.68a320 320 0 0 1-320 320H102.4v-76.8h537.6a243.2 243.2 0 0 0 0-486.4H102.4v-76.8h537.6a320 320 0 0 1 320 320z M167.0144 296.9088L283.136 413.0816l-54.272 54.272-170.496-170.496L228.864 126.464l54.272 54.272L167.0144 296.96z',
+                onclick: async function () {
+                    let parentAdCode = await getParentAdCode(adcode.value).then(res => res.data);
+                    if (parentAdCode) {
+                        updateMapByAdCode(parentAdCode);
+                    }
+                }
+            }
+        }
     },
     visualMap: {
         min: 0,
@@ -134,25 +148,22 @@ let printMyEchartByAdCode = async (adcode) => {
         echarts.registerMap(`${adcode}`, geoJson);
         myChart.setOption(option);
     }
-
 }
 
 let printMyEchart = () => {
     setDomSize(echarts_dom.value);
     myChart = echarts.init(echarts_dom.value);
 
-    printMyEchartByAdCode(props.adcode);
+    printMyEchartByAdCode(adcode.value);
 
-    nextTick(() => {
-        myChart.on('click', params => {
-            let newAdCode = params.data.adcode;
-            nextTick(() => printMyEchartByAdCode(newAdCode));
-        })
+    myChart.on('click', params => {
+        if(params.data)updateMapByAdCode(params.data.adcode);
     })
 }
 
 onMounted(() => {
     nextTick(printMyEchart);
+
     window.onresize = (function () {
         let free = true;
         return () => {
@@ -168,13 +179,44 @@ onMounted(() => {
     })();
 })
 
-watch(NumberCnts, () => {
-    option.visualMap.min = NumberCnts[props.staticsType].length && NumberCnts[props.staticsType]
+let updateMapByAdCode = function (newAdCode) {
+    nextTick(async () => {
+        let oldVal = adcode.value;
+        adcode.value = newAdCode;
+
+        myChart.showLoading();
+        let geoJson = echarts.getMap(newAdCode);
+        if (!geoJson) {
+            geoJson = await getGeoJson(newAdCode);
+            for (let feature of geoJson.features) {
+                adcodeMap2Name.set(feature.properties.adcode, feature.properties.name);
+            }
+            echarts.registerMap(`${newAdCode}`, geoJson);
+        }
+
+        myChart.hideLoading();
+        let flag = await setNumberCnts(newAdCode, true);
+
+        if (flag) {
+            myChart.setOption(option);
+        }else{
+            adcode.value = oldVal;
+        }
+    });
+}
+
+watch(staticsType, () => {
+    setOption();
+    myChart.setOption(option);
+})
+
+function setOption() {
+    option.visualMap.min = NumberCnts[staticsType.value].length && NumberCnts[staticsType.value]
         .map(item => item.value)
         .reduce((cur, next) => {
             return Math.min(cur, next);
         });
-    option.visualMap.max = NumberCnts[props.staticsType].length && NumberCnts[props.staticsType]
+    option.visualMap.max = NumberCnts[staticsType.value].length && NumberCnts[staticsType.value]
         .map(item => item.value)
         .reduce((cur, next) => {
             return Math.max(cur, next);
@@ -182,14 +224,18 @@ watch(NumberCnts, () => {
     option.series = [{
         name: '',
         type: 'map',
-        map: `${NumberCnts.adcode}`,
+        map: `${adcode.value}`,
         zoom: 1.2,
         roam: true,
+        center: undefined,
         label: {
             show: true
         },
-        data: NumberCnts[props.staticsType]
+        data: NumberCnts[staticsType.value]
     }];
+}
+watch(NumberCnts, () => {
+    setOption();
 })
 
 </script>
