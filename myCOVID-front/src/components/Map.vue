@@ -83,9 +83,12 @@ let option = {
                         updateMapByAdCode(parentAdCode);
                     }
                 }
+
             }
+
         }
     },
+
     visualMap: {
         min: 0,
         max: 0,
@@ -156,9 +159,19 @@ let printMyEchart = () => {
 
     printMyEchartByAdCode(adcode.value);
 
-    myChart.on('click', params => {
-        if(params.data)updateMapByAdCode(params.data.adcode);
-    })
+    myChart.on('click', (()=>{
+        let handled = true;
+        return function(params){
+            if(handled){
+                handled = false;
+                setTimeout(()=>{
+                    if (params.data) updateMapByAdCode(params.data.adcode);
+                    handled = true;
+                },400);
+            }
+            
+        }
+    })())
 }
 
 onMounted(() => {
@@ -199,9 +212,10 @@ let updateMapByAdCode = function (newAdCode) {
 
         if (flag) {
             myChart.setOption(option);
-        }else{
+        } else {
             adcode.value = oldVal;
         }
+        console.log(newAdCode, adcode.value);
     });
 }
 
