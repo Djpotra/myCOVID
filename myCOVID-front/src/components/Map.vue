@@ -64,6 +64,9 @@ let NumberCnts = reactive({
     midDangerCount: [],
 });
 let adcodeMap2Name = new Map();
+let parentAdCodes = new Map();
+let bannedAdCodes = new Set();
+
 let option = {
     title: {
 
@@ -78,14 +81,11 @@ let option = {
                 title: 'back',
                 icon: 'path://M960 583.68a320 320 0 0 1-320 320H102.4v-76.8h537.6a243.2 243.2 0 0 0 0-486.4H102.4v-76.8h537.6a320 320 0 0 1 320 320z M167.0144 296.9088L283.136 413.0816l-54.272 54.272-170.496-170.496L228.864 126.464l54.272 54.272L167.0144 296.96z',
                 onclick: async function () {
-                    let parentAdCode = await getParentAdCode(adcode.value).then(res => res.data);
-                    if (parentAdCode) {
-                        updateMapByAdCode(parentAdCode);
+                    if (parentAdCodes.has(adcode.value)) {
+                        updateMapByAdCode(parentAdCodes.get(adcode.value));
                     }
                 }
-
             }
-
         }
     },
 
@@ -105,6 +105,32 @@ let option = {
     },
     series: []
 }
+
+function setOption() {
+    option.visualMap.min = NumberCnts[staticsType.value].length && NumberCnts[staticsType.value]
+        .map(item => item.value)
+        .reduce((cur, next) => {
+            return Math.min(cur, next);
+        });
+    option.visualMap.max = NumberCnts[staticsType.value].length && NumberCnts[staticsType.value]
+        .map(item => item.value)
+        .reduce((cur, next) => {
+            return Math.max(cur, next);
+        });
+    option.series = [{
+        name: '',
+        type: 'map',
+        map: `${adcode.value}`,
+        zoom: 1.2,
+        roam: true,
+        center: undefined,
+        label: {
+            show: true
+        },
+        data: NumberCnts[staticsType.value]
+    }];
+}
+
 let myChart;
 
 let setDomSize = (node) => {
@@ -137,45 +163,59 @@ let setNumberCnts = async (adcode, ifExclude) => {
     return false;
 }
 
-let printMyEchartByAdCode = async (adcode) => {
+let updateMapByAdCode = async function (newAdCode) {
+
     myChart.showLoading();
-    let geoJson = await getGeoJson(adcode);
-    myChart.hideLoading();
+    let oldVal = adcode.value;
+    adcode.value = newAdCode;
 
-    for (let feature of geoJson.features) {
-        adcodeMap2Name.set(feature.properties.adcode, feature.properties.name);
-    }
-
-    let flag = await setNumberCnts(adcode, true);
-    if (flag) {
-        echarts.registerMap(`${adcode}`, geoJson);
-        myChart.setOption(option);
-    }
-}
-
-let printMyEchart = () => {
-    setDomSize(echarts_dom.value);
-    myChart = echarts.init(echarts_dom.value);
-
-    printMyEchartByAdCode(adcode.value);
-
-    myChart.on('click', (()=>{
-        let handled = true;
-        return function(params){
-            if(handled){
-                handled = false;
-                setTimeout(()=>{
-                    if (params.data) updateMapByAdCode(params.data.adcode);
-                    handled = true;
-                },400);
-            }
-            
+    let geoJson = echarts.getMap(newAdCode);
+    if (!geoJson) {
+        geoJson = await getGeoJson(newAdCode);
+        for (let feature of geoJson.features) {
+            adcodeMap2Name.set(feature.properties.adcode, feature.properties.name);
         }
-    })())
+        echarts.registerMap(`${newAdCode}`, geoJson);
+    }
+
+    let flag = await setNumberCnts(newAdCode, true);
+    myChart.hideLoading();
+    if (flag) {
+        myChart.setOption(option);
+        return true;
+    } else {
+        adcode.value = oldVal;
+    }
+
+    return false;
 }
 
 onMounted(() => {
-    nextTick(printMyEchart);
+    setDomSize(echarts_dom.value);
+    myChart = echarts.init(echarts_dom.value);
+    myChart.on('click', (() => {
+        let handled = true;
+        return function (params) {
+            if (handled) {
+                nextTick(async () => {
+                    handled = false;
+                    if (params.data && !bannedAdCodes.has(params.data.adcode)) {
+                        parentAdCodes.set(params.data.adcode,adcode.value);
+                        if(!await updateMapByAdCode(params.data.adcode)){
+                            bannedAdCodes.add(params.data.adcode);
+                        }
+                    }
+                    setTimeout(() => {
+                        handled = true;
+                    }, 400);
+                })
+            }
+        }
+    })())
+
+    nextTick(() => {
+        updateMapByAdCode(adcode.value);
+    });
 
     window.onresize = (function () {
         let free = true;
@@ -192,62 +232,12 @@ onMounted(() => {
     })();
 })
 
-let updateMapByAdCode = function (newAdCode) {
-    nextTick(async () => {
-        let oldVal = adcode.value;
-        adcode.value = newAdCode;
-
-        myChart.showLoading();
-        let geoJson = echarts.getMap(newAdCode);
-        if (!geoJson) {
-            geoJson = await getGeoJson(newAdCode);
-            for (let feature of geoJson.features) {
-                adcodeMap2Name.set(feature.properties.adcode, feature.properties.name);
-            }
-            echarts.registerMap(`${newAdCode}`, geoJson);
-        }
-
-        myChart.hideLoading();
-        let flag = await setNumberCnts(newAdCode, true);
-
-        if (flag) {
-            myChart.setOption(option);
-        } else {
-            adcode.value = oldVal;
-        }
-        console.log(newAdCode, adcode.value);
-    });
-}
 
 watch(staticsType, () => {
     setOption();
     myChart.setOption(option);
 })
 
-function setOption() {
-    option.visualMap.min = NumberCnts[staticsType.value].length && NumberCnts[staticsType.value]
-        .map(item => item.value)
-        .reduce((cur, next) => {
-            return Math.min(cur, next);
-        });
-    option.visualMap.max = NumberCnts[staticsType.value].length && NumberCnts[staticsType.value]
-        .map(item => item.value)
-        .reduce((cur, next) => {
-            return Math.max(cur, next);
-        });
-    option.series = [{
-        name: '',
-        type: 'map',
-        map: `${adcode.value}`,
-        zoom: 1.2,
-        roam: true,
-        center: undefined,
-        label: {
-            show: true
-        },
-        data: NumberCnts[staticsType.value]
-    }];
-}
 watch(NumberCnts, () => {
     setOption();
 })
