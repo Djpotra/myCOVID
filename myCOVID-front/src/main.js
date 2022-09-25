@@ -6,6 +6,7 @@ import router from './router'
 import Map from '@/components/Map.vue'
 import Bar from '@/components/Bar.vue'
 import Pie from '@/components/Pie.vue'
+import Line from '@/components/Line.vue'
 
 // import './assets/main.css'
 
@@ -15,6 +16,6 @@ app.use(router)
 app.component(Map.name,Map);
 app.component(Bar.name,Bar);
 app.component(Pie.name,Pie);
-
+app.component(Line.name,Line);
 
 app.mount('#app')

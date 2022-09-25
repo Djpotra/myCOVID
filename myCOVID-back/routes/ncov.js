@@ -12,6 +12,13 @@ function getPath(adcode) {
     else return `/${adcode}`;
 }
 
+router.get('/statisticsdata/:adcode',(req,res,next)=>{
+    let {adcode} = req.params;
+    let target = `${basePath}${getPath(adcode)}_statisticsData.json`;
+    let temp = require(target);
+    res.send(temp.data);
+});
+
 router.get('/child/:adcode', (req, res, next) => {
     let { adcode } = req.params;
     let NumberCnts = {

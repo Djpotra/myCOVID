@@ -6,4 +6,4 @@ export const getParentAdCode = (adcode)=>dataRequests.get(`/parent_adcode/${adco
 
 export const getNcovJson = (adcode)=>ncovRequests.get(`/${adcode}`);
 export const getChildNcovJson = (adcode)=>ncovRequests.get(`/child/${adcode}`);
-export const getStaticsDataJson = (adcode)=>ncovRequests.get(`/staticdata/${adcode}`);
+export const getStatisticsDataJson = (adcode)=>ncovRequests.get(`/statisticsdata/${adcode}`);

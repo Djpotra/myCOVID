@@ -1,5 +1,5 @@
 <script setup>
-import { getGeoJson, getParentAdCode, getNcovJson, getChildNcovJson } from '@/api'
+import { getStatisticsDataJson } from '@/api'
 import { ref, onMounted, watch, computed, nextTick, reactive } from 'vue';
 
 import * as echarts from 'echarts/core'
@@ -40,16 +40,15 @@ const props = defineProps({
         type: Number,
         default: 100000
     },
-    intiStaticsType: {
+    initStaticsType: {
         type: String,
         default: 'currentConfirmedCount'
     }
 })
 
-let staticsType = ref(props.intiStaticsType);
+let staticsType = ref(props.initStaticsType);
 
 let echarts_dom = ref(null);
-let staticsData = reactive([]);
 let NumberCnts = reactive({
     confirmedCount: [],
     confirmedIncr: [],
@@ -67,9 +66,21 @@ let NumberCnts = reactive({
 });
 
 let option = {
+    title: {
+
+    },
+    tooltip: {
+
+    },
     xAxis: {
         type: 'category',
-        data: []
+        data: [],
+        axisLabel: {
+            show: true,
+            interval: 90,
+            rotate: -90,
+            inside: false,
+        }
     },
     yAxis: {
         type: 'log'
@@ -82,14 +93,15 @@ let option = {
 }
 
 function setOption() {
+    // console.log(NumberCnts[staticsType.value]);
     option.series = [
         {
-            data: NumberCnts[staticsType.value],
+            data: NumberCnts[staticsType.value].filter(value=>value>=1),
             type: 'line',
             smooth: true
         }
     ];
-    option.xAxis.data = NumberCnts.dateId;
+    option.xAxis.data = NumberCnts.dateId.filter((value,index)=>NumberCnts[staticsType.value][index]>=1);
 }
 
 let myChart;
@@ -101,50 +113,48 @@ let setDomSize = (node) => {
 }
 
 let setNumberCnts = async (adcode) => {
-    let temp = await getChildNcovJson(adcode);
+    let temp = await getStatisticsDataJson(adcode);
+    // console.log(temp);
     if (temp) {
-        for (let key in NumberCnts) {
-            if (!Array.isArray(temp[key])) {
-                NumberCnts[key] = temp[key];
-                continue;
+        let newNumberCnts = {
+            confirmedCount: [],
+            confirmedIncr: [],
+            curedCount: [],
+            curedIncr: [],
+            currentConfirmedCount: [],
+            currentConfirmedIncr: [],
+            dateId: [],
+            deadCount: [],
+            deadIncr: [],
+            highDangerCount: [],
+            midDangerCount: [],
+            suspectedCount: [],
+            suspectedCountIncr: []
+        };
+        for (let item of temp) {
+            for (let key in item) {
+                newNumberCnts[key].push(item[key]);
             }
-            NumberCnts[key] = temp[key]
-                .filter(item => !exclude.has(item.name))
-                .map(item => {
-                    return {
-                        adcode: item.name,
-                        name: adcodeMap2Name.get(item.name),
-                        value: item.value
-                    }
-                });
         }
+
+        for (let key in newNumberCnts) {
+            NumberCnts[key].push(...newNumberCnts[key]);
+        }
+
         return true;
     }
     return false;
 }
 
-let updateMapByAdCode = async function (newAdCode) {
+let updateLineByAdCode = async function (adcode) {
 
     myChart.showLoading();
-    let oldVal = adcode.value;
-    adcode.value = newAdCode;
 
-    let geoJson = echarts.getMap(newAdCode);
-    if (!geoJson) {
-        geoJson = await getGeoJson(newAdCode);
-        for (let feature of geoJson.features) {
-            adcodeMap2Name.set(feature.properties.adcode, feature.properties.name);
-        }
-        echarts.registerMap(`${newAdCode}`, geoJson);
-    }
-
-    let flag = await setNumberCnts(newAdCode, true);
+    let flag = await setNumberCnts(adcode, true);
     myChart.hideLoading();
     if (flag) {
         myChart.setOption(option);
         return true;
-    } else {
-        adcode.value = oldVal;
     }
 
     return false;
@@ -153,28 +163,9 @@ let updateMapByAdCode = async function (newAdCode) {
 onMounted(() => {
     setDomSize(echarts_dom.value);
     myChart = echarts.init(echarts_dom.value);
-    myChart.on('click', (() => {
-        let handled = true;
-        return function (params) {
-            if (handled) {
-                nextTick(async () => {
-                    handled = false;
-                    if (params.data && !bannedAdCodes.has(params.data.adcode)) {
-                        parentAdCodes.set(params.data.adcode, adcode.value);
-                        if (!await updateMapByAdCode(params.data.adcode)) {
-                            bannedAdCodes.add(params.data.adcode);
-                        }
-                    }
-                    setTimeout(() => {
-                        handled = true;
-                    }, 400);
-                })
-            }
-        }
-    })())
 
     nextTick(() => {
-        updateMapByAdCode(adcode.value);
+        updateLineByAdCode(props.initAdcode);
     });
 
     window.onresize = (function () {
@@ -206,7 +197,7 @@ watch(NumberCnts, () => {
 
 <script>
 export default {
-    name: 'Map'
+    name: 'Line'
 }
 </script>
 
